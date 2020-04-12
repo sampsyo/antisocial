@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use std::fs;
 use std::sync::Arc;
 use warp::Filter;
@@ -93,6 +93,36 @@ async fn webfinger(
     Ok(warp::reply::json(&resp))
 }
 
+#[derive(Serialize, Deserialize)]
+struct Post {
+    content: String,
+}
+
+fn load_post(path: &Path) -> Post {
+    let data = fs::read_to_string(path).unwrap();
+    toml::from_str(&data).unwrap()
+}
+
+async fn outbox(
+    name: String,
+    _config: Arc<Config>,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let path = Path::new("users").join(&name);
+    let posts_path = path.join("posts");
+
+    let posts: Vec<Post> = fs::read_dir(posts_path).unwrap()
+        .map(|ent| load_post(&ent.unwrap().path()))
+        .collect();
+
+    let collection = json!({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "type": "OrderedCollection",
+        "totalItems": posts.len(),
+        "orderedItems": posts,
+    });
+    Ok(warp::reply::json(&collection))
+}
+
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
@@ -107,8 +137,11 @@ async fn main() {
         .and(warp::query::<WfArgs>())
         .and(config_filt.clone())
         .and_then(webfinger);
+    let outbox = warp::path!("users" / String / "outbox")
+        .and(config_filt.clone())
+        .and_then(outbox);
 
-    let routes = user.or(wf);
+    let routes = user.or(wf).or(outbox);
     warp::serve(routes)
         .run(([127, 0, 0, 1], 3030))
         .await;
