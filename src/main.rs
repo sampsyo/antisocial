@@ -39,6 +39,7 @@ async fn get_actor(
         "id": url,
         "preferredUsername": name,
         "inbox": inbox,
+        "outbox": format!("{}/outbox", url),
         "publicKey": {
             "id": format!("{}#main-key", url),
             "owner": url,
