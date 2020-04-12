@@ -2,6 +2,7 @@ use serde::Deserialize;
 use std::fs;
 use std::sync::Arc;
 use warp::Filter;
+use activitystreams::actor::Person;
 
 #[derive(Deserialize)]
 struct Config {
@@ -13,12 +14,17 @@ fn loadcfg() -> Config {
     toml::from_str(&configstr).unwrap()
 }
 
-async fn say_hello(
+async fn get_actor(
     name: String,
     config: Arc<Config>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    let reply = format!("Hello from {}, {}!", (*config).url, name);
-    Ok(warp::reply::html(reply))
+    // Incredibly, this weird mutationy style is the only way to build
+    // ActivityStreams objects??
+    let mut p = Person::default();
+    p.as_mut()
+        .set_id((*config).url.clone()).unwrap();
+
+    Ok(warp::reply::json(&p))
 }
 
 #[tokio::main]
@@ -28,9 +34,9 @@ async fn main() {
     let config: Arc<Config> = Arc::new(loadcfg());
     let config_filt = warp::any().map(move || Arc::clone(&config));
 
-    let hello = warp::path!("hello" / String)
+    let hello = warp::path!("users" / String)
         .and(config_filt)
-        .and_then(say_hello);
+        .and_then(get_actor);
 
     warp::serve(hello)
         .run(([127, 0, 0, 1], 3030))
