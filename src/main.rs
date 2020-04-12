@@ -4,10 +4,12 @@ use std::sync::Arc;
 use warp::Filter;
 use serde_json::json;
 use std::path::Path;
+use url::Url;
 
 #[derive(Deserialize)]
 struct Config {
     url: String,
+    domain: String,
 }
 
 fn loadcfg() -> Config {
@@ -55,9 +57,31 @@ async fn webfinger(
     args: WfArgs,
     config: Arc<Config>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    // TODO check that it starts with acct
+    // WebFinger requests come in the form acct:user@host. Ensure
+    // that the URL is well formed and asking for the right domain.
+    let rsrc = Url::parse(&args.resource).unwrap();
+    if rsrc.scheme() != "acct" {
+        return Err(warp::reject::not_found());
+    }
+    let parts: Vec<&str> = rsrc.path().splitn(2, "@").collect();
+    if parts.len() != 2 {
+        return Err(warp::reject::not_found());
+    }
+    if parts[1] != config.domain {
+        return Err(warp::reject::not_found());
+    }
+    let user = parts[0];
+
+    // TODO really, centralize URL construction
+    let url = format!("{}/users/{}", config.url, user);
+
     let resp = json!({
-        "subject": args.resource,
+        "subject": format!("acct:{}@{}", user, config.domain),
+        "links": [{
+            "rel": "self",
+            "type": "application/activity+json",
+            "href": url,
+        }],
     });
     Ok(warp::reply::json(&resp))
 }
