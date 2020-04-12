@@ -3,6 +3,7 @@ use std::fs;
 use std::sync::Arc;
 use warp::Filter;
 use serde_json::json;
+use std::path::Path;
 
 #[derive(Deserialize)]
 struct Config {
@@ -22,6 +23,11 @@ async fn get_actor(
     let url = format!("{}/users/{}", config.url, name);
     let inbox = format!("{}/inbox", config.url);
 
+    // TODO consider loading all the data up front...
+    // TODO make sure "name" is just a keyword; no slashes or whatever
+    let path = Path::new("users").join(&name);
+    let key = fs::read_to_string(path.join("public.pem")).unwrap();
+
     let person = json!({
         "@context": [
             "https://www.w3.org/ns/activitystreams",
@@ -34,7 +40,7 @@ async fn get_actor(
         "publicKey": {
             "id": format!("{}#main-key", url),
             "owner": url,
-            "publicKeyPem": "TODO",
+            "publicKeyPem": key,
         }
     });
     Ok(warp::reply::json(&person))
