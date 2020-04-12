@@ -72,6 +72,13 @@ async fn webfinger(
     }
     let user = parts[0];
 
+    // Check that we actually have a user by this name.
+    // TODO centralize FS interaction
+    let path = Path::new("users").join(&user);
+    if !path.is_dir() {
+        return Err(warp::reject::not_found());
+    }
+
     // TODO really, centralize URL construction
     let url = format!("{}/users/{}", config.url, user);
 
