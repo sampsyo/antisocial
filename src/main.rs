@@ -20,9 +20,11 @@ async fn get_actor(
 ) -> Result<impl warp::Reply, warp::Rejection> {
     // Incredibly, this weird mutationy style is the only way to build
     // ActivityStreams objects??
-    let mut p = Person::default();
+    let mut p = Person::full();
     p.as_mut()
         .set_id((*config).url.clone()).unwrap();
+    p.extension
+        .set_preferred_username(name.clone()).unwrap();
 
     Ok(warp::reply::json(&p))
 }
