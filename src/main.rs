@@ -18,19 +18,23 @@ async fn get_actor(
     name: String,
     config: Arc<Config>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
+    // TODO centralize URL generation somewhere.
+    let url = format!("{}/users/{}", config.url, name);
+    let inbox = format!("{}/inbox", config.url);
+
     let person = json!({
         "@context": [
             "https://www.w3.org/ns/activitystreams",
             "https://w3id.org/security/v1",
         ],
         "type": "Person",
-        "id": config.url,
+        "id": url,
         "preferredUsername": name,
-        "inbox": "https://my-example.com/inbox",
+        "inbox": inbox,
         "publicKey": {
-            "id": "https://my-example.com/actor#main-key",
-            "owner": "https://my-example.com/actor",
-            "publicKeyPem": "bar",
+            "id": format!("{}#main-key", url),
+            "owner": url,
+            "publicKeyPem": "TODO",
         }
     });
     Ok(warp::reply::json(&person))
