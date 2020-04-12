@@ -23,6 +23,8 @@ async fn say_hello(
 
 #[tokio::main]
 async fn main() {
+    pretty_env_logger::init();
+
     let config: Arc<Config> = Arc::new(loadcfg());
     let config_filt = warp::any().map(move || Arc::clone(&config));
 
