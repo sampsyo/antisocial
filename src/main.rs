@@ -46,6 +46,22 @@ async fn get_actor(
     Ok(warp::reply::json(&person))
 }
 
+#[derive(Deserialize)]
+struct WfArgs {
+    resource: String,
+}
+
+async fn webfinger(
+    args: WfArgs,
+    config: Arc<Config>,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    // TODO check that it starts with acct
+    let resp = json!({
+        "subject": args.resource,
+    });
+    Ok(warp::reply::json(&resp))
+}
+
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
@@ -53,11 +69,16 @@ async fn main() {
     let config: Arc<Config> = Arc::new(loadcfg());
     let config_filt = warp::any().map(move || Arc::clone(&config));
 
-    let hello = warp::path!("users" / String)
-        .and(config_filt)
+    let user = warp::path!("users" / String)
+        .and(config_filt.clone())
         .and_then(get_actor);
+    let wf = warp::path!(".well-known" / "webfinger")
+        .and(warp::query::<WfArgs>())
+        .and(config_filt.clone())
+        .and_then(webfinger);
 
-    warp::serve(hello)
+    let routes = user.or(wf);
+    warp::serve(routes)
         .run(([127, 0, 0, 1], 3030))
         .await;
 }
