@@ -2,7 +2,7 @@ use serde::Deserialize;
 use std::fs;
 use std::sync::Arc;
 use warp::Filter;
-use activitystreams::actor::Person;
+use serde_json::json;
 
 #[derive(Deserialize)]
 struct Config {
@@ -18,15 +18,22 @@ async fn get_actor(
     name: String,
     config: Arc<Config>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    // Incredibly, this weird mutationy style is the only way to build
-    // ActivityStreams objects??
-    let mut p = Person::full();
-    p.as_mut()
-        .set_id((*config).url.clone()).unwrap();
-    p.extension
-        .set_preferred_username(name.clone()).unwrap();
-
-    Ok(warp::reply::json(&p))
+    let person = json!({
+        "@context": [
+            "https://www.w3.org/ns/activitystreams",
+            "https://w3id.org/security/v1",
+        ],
+        "type": "Person",
+        "id": config.url,
+        "preferredUsername": name,
+        "inbox": "https://my-example.com/inbox",
+        "publicKey": {
+            "id": "https://my-example.com/actor#main-key",
+            "owner": "https://my-example.com/actor",
+            "publicKeyPem": "bar",
+        }
+    });
+    Ok(warp::reply::json(&person))
 }
 
 #[tokio::main]
